@@ -1,0 +1,1452 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Sleep">
+<title>Sleep Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #f7f6f3;
+    --surface: #ffffff;
+    --surface2: #f0efe9;
+    --border: rgba(0,0,0,0.09);
+    --border2: rgba(0,0,0,0.15);
+    --text: #1a1917;
+    --text2: #7a7870;
+    --text3: #b0aea8;
+    --purple: #534AB7;
+    --purple-light: #EEEDFE;
+    --teal: #0F6E56;
+    --teal-light: #E1F5EE;
+    --amber: #854F0B;
+    --amber-light: #FAEEDA;
+    --green: #1D9E75;
+    --red: #E24B4A;
+    --orange: #EF9F27;
+    --radius: 14px;
+    --radius-sm: 9px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #131211;
+      --surface: #1e1d1b;
+      --surface2: #272522;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #f0ede8;
+      --text2: #8a8780;
+      --text3: #555250;
+      --purple-light: #2a2660;
+      --teal-light: #0a2e24;
+      --amber-light: #2d1f08;
+    }
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); font-family: 'DM Sans', sans-serif; color: var(--text); overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; max-width: 430px; margin: 0 auto; position: relative; }
+
+  /* Status bar */
+  .status { padding: calc(var(--safe-top) + 10px) 20px 4px; display: flex; justify-content: space-between; align-items: center; background: var(--bg); }
+  .status-time { font-size: 15px; font-weight: 500; color: var(--text); }
+  .status-icons { font-size: 12px; color: var(--text2); letter-spacing: 2px; }
+
+  /* Screens */
+  .screen { display: none; flex-direction: column; flex: 1; overflow: hidden; }
+  .screen.active { display: flex; }
+  .scroll { flex: 1; overflow-y: auto; padding: 0 18px calc(var(--safe-bottom) + 90px); -webkit-overflow-scrolling: touch; }
+
+  /* Nav */
+  .nav { display: flex; background: var(--surface); border-top: 0.5px solid var(--border); padding-bottom: calc(var(--safe-bottom) + 4px); position: relative; z-index: 10; }
+  .nav-btn { flex: 1; padding: 10px 4px 8px; border: none; background: none; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; font-family: 'DM Sans', sans-serif; }
+  .nav-btn svg { width: 23px; height: 23px; stroke: var(--text3); transition: stroke 0.15s; }
+  .nav-btn span { font-size: 10px; color: var(--text3); font-weight: 400; transition: color 0.15s; }
+  .nav-btn.active svg { stroke: var(--text); }
+  .nav-btn.active span { color: var(--text); font-weight: 500; }
+
+  /* Header area */
+  .page-header { padding: 18px 0 6px; }
+  .page-header .eyebrow { font-size: 12px; color: var(--text2); margin-bottom: 3px; }
+  .page-header h1 { font-size: 26px; font-weight: 300; color: var(--text); line-height: 1.1; }
+  .page-header h1 strong { font-weight: 500; }
+
+  /* Big log buttons */
+  .log-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 18px 0 6px; }
+  .log-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px 14px; cursor: pointer; transition: background 0.12s; display: flex; flex-direction: column; gap: 8px; }
+  .log-card:active { background: var(--surface2); }
+  .log-card.wide { grid-column: span 2; flex-direction: row; align-items: center; gap: 14px; }
+  .log-card .icon-wrap { width: 38px; height: 38px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .log-card .card-label { font-size: 14px; font-weight: 500; color: var(--text); }
+  .log-card .card-time { font-size: 20px; font-weight: 300; color: var(--text); font-family: 'DM Mono', monospace; }
+  .log-card .card-sub { font-size: 12px; color: var(--text2); }
+
+  /* Section label */
+  .sec-label { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .08em; margin: 20px 0 8px; }
+
+  /* Manual entry card */
+  .entry-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 10px; }
+  .type-row { display: flex; gap: 6px; margin-bottom: 14px; flex-wrap: wrap; }
+  .pill { padding: 6px 14px; border-radius: 20px; border: 0.5px solid var(--border2); background: none; font-size: 13px; font-family: 'DM Sans', sans-serif; color: var(--text2); cursor: pointer; transition: all 0.12s; }
+  .pill.on { background: var(--text); color: var(--bg); border-color: var(--text); }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+  .field { }
+  .field label { font-size: 12px; color: var(--text2); display: block; margin-bottom: 4px; }
+  .field input { width: 100%; padding: 9px 11px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface2); font-size: 14px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; -webkit-appearance: none; }
+  .field input:focus { border-color: var(--purple); }
+  .note-inp { width: 100%; padding: 9px 11px; border: 0.5px solid var(--border2); border-radius: var(--radius-sm); background: var(--surface2); font-size: 13px; color: var(--text); font-family: 'DM Sans', sans-serif; outline: none; margin-bottom: 10px; }
+  .note-inp::placeholder { color: var(--text3); }
+  .save-btn { width: 100%; padding: 12px; background: var(--text); color: var(--bg); border: none; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; font-family: 'DM Sans', sans-serif; cursor: pointer; transition: opacity 0.12s; }
+  .save-btn:active { opacity: 0.75; }
+
+  /* Log list */
+  .log-row { display: flex; align-items: center; gap: 10px; padding: 11px 0; border-bottom: 0.5px solid var(--border); }
+  .log-row:last-child { border-bottom: none; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .log-info { flex: 1; }
+  .log-type { font-size: 14px; font-weight: 500; color: var(--text); }
+  .log-note { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .log-t { font-family: 'DM Mono', monospace; font-size: 13px; color: var(--text2); }
+  .del-btn { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 2px 6px; }
+  .empty-msg { text-align: center; padding: 28px 0; color: var(--text3); font-size: 13px; line-height: 1.7; }
+
+  /* Metrics */
+  .metrics { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin: 16px 0; }
+  .met { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius-sm); padding: 11px 12px; }
+  .met-label { font-size: 10px; color: var(--text2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 5px; }
+  .met-val { font-size: 20px; font-weight: 400; color: var(--text); font-family: 'DM Mono', monospace; }
+  .met-sub { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+  /* Charts */
+  .chart-box { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 14px; margin-bottom: 10px; }
+  .chart-title { font-size: 12px; font-weight: 500; color: var(--text2); margin-bottom: 10px; }
+  .chart-inner { position: relative; width: 100%; }
+  .legend { display: flex; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+  .legend span { display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--text2); }
+  .legend i { width: 8px; height: 8px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
+
+  /* Insights */
+  .insight { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 15px; margin-bottom: 8px; }
+  .ins-eyebrow { font-size: 10px; color: var(--text3); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 3px; }
+  .ins-val { font-size: 15px; font-weight: 500; color: var(--text); }
+  .ins-sub { font-size: 12px; color: var(--text2); margin-top: 3px; line-height: 1.4; }
+
+  /* History */
+  .hist-group { margin-bottom: 18px; }
+  .hist-date { font-size: 11px; font-weight: 500; color: var(--text2); text-transform: uppercase; letter-spacing: .07em; margin-bottom: 6px; }
+  .hist-card { background: var(--surface); border: 0.5px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .hist-row { display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-bottom: 0.5px solid var(--border); }
+  .hist-row:last-child { border-bottom: none; }
+
+  /* Sleep bar visual */
+  .sleep-bar-wrap { margin: 4px 0 14px; }
+  .sleep-bar { height: 6px; background: var(--surface2); border-radius: 3px; overflow: hidden; margin-bottom: 4px; }
+  .sleep-bar-fill { height: 100%; border-radius: 3px; transition: width 0.4s ease; }
+  .sleep-bar-labels { display: flex; justify-content: space-between; font-size: 10px; color: var(--text3); }
+
+  /* Toast */
+  .toast { position: fixed; bottom: calc(var(--safe-bottom) + 80px); left: 50%; transform: translateX(-50%) translateY(8px); background: var(--text); color: var(--bg); padding: 9px 20px; border-radius: 20px; font-size: 13px; font-weight: 400; white-space: nowrap; opacity: 0; transition: opacity 0.2s, transform 0.2s; pointer-events: none; z-index: 999; }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* Streak pill */
+  .streak-pill { display: inline-flex; align-items: center; gap: 5px; background: var(--teal-light); color: var(--teal); border-radius: 20px; padding: 3px 10px; font-size: 12px; font-weight: 500; margin-top: 6px; }
+</style>
+</head>
+<body>
+
+<div class="status">
+  <span class="status-time" id="sb-time">9:41</span>
+  <span class="status-icons">● ● ▲</span>
+</div>
+
+<!-- LOG SCREEN -->
+<div class="screen active" id="scr-log">
+  <div class="scroll">
+    <div class="page-header">
+      <div class="eyebrow" id="hdr-date"></div>
+      <h1 id="hdr-greet"><strong>Good evening</strong></h1>
+    </div>
+
+    <div class="log-grid">
+      <div class="log-card" onclick="quickLog('bedtime')">
+        <div class="icon-wrap" style="background:var(--purple-light)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--purple)" stroke-width="2" stroke-linecap="round"><path d="M21 12.79A9 9 0 1111.21 3 7 7 0 0021 12.79z"/></svg>
+        </div>
+        <div>
+          <div class="card-label">Bedtime</div>
+          <div class="card-time" id="q-bed">--:--</div>
+        </div>
+      </div>
+      <div class="log-card" onclick="quickLog('wakeup')">
+        <div class="icon-wrap" style="background:var(--teal-light)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--teal)" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="4.93" y1="4.93" x2="6.34" y2="6.34"/><line x1="17.66" y1="17.66" x2="19.07" y2="19.07"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.93" y1="19.07" x2="6.34" y2="17.66"/><line x1="17.66" y1="6.34" x2="19.07" y2="4.93"/></svg>
+        </div>
+        <div>
+          <div class="card-label">Wake up</div>
+          <div class="card-time" id="q-wake">--:--</div>
+        </div>
+      </div>
+      <div class="log-card wide" onclick="openNapModal()">
+        <div class="icon-wrap" style="background:var(--amber-light)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"><path d="M17 18a5 5 0 00-10 0"/><line x1="12" y1="9" x2="12" y2="2"/><line x1="4.22" y1="10.22" x2="5.64" y2="11.64"/><line x1="1" y1="18" x2="3" y2="18"/><line x1="21" y1="18" x2="23" y2="18"/><line x1="18.36" y1="11.64" x2="19.78" y2="10.22"/></svg>
+        </div>
+        <div>
+          <div class="card-label">Nap</div>
+          <div class="card-sub">Tap to log duration</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="goal-today-card"></div>
+
+    <div class="sec-label">Manual entry</div>
+    <div class="entry-card">
+      <div class="type-row">
+        <button class="pill on" onclick="selType('bedtime',this)">Bedtime</button>
+        <button class="pill" onclick="selType('wakeup',this)">Wake up</button>
+        <button class="pill" onclick="selType('nap',this)">Nap</button>
+      </div>
+      <div class="field-row">
+        <div class="field"><label>Time</label><input type="time" id="m-time"></div>
+        <div class="field"><label>Date</label><input type="date" id="m-date"></div>
+      </div>
+      <div class="field" id="nap-dur-field" style="display:none;margin-bottom:10px">
+        <label>Nap duration (minutes)</label>
+        <input type="number" id="m-napdur" min="1" max="480" placeholder="e.g. 45" style="width:100%;padding:9px 11px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);font-size:14px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none">
+      </div>
+      <input class="note-inp" id="m-note" type="text" placeholder="Note (optional)">
+      <button class="save-btn" onclick="saveManual()">Save entry</button>
+    </div>
+
+    <div class="sec-label">Today</div>
+    <div id="today-list"></div>
+  </div>
+</div>
+
+<!-- TRENDS SCREEN -->
+<div class="screen" id="scr-trends">
+  <!-- Tab selector -->
+  <div style="background:var(--bg);padding:10px 18px 0;flex-shrink:0">
+    <div style="display:flex;background:var(--surface2);border-radius:10px;padding:3px;gap:2px" id="period-tabs">
+      <button class="ptab active" onclick="setPeriod('week',this)" style="flex:1;padding:7px 0;border:none;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;background:var(--surface);color:var(--text);font-weight:500">Weekly</button>
+      <button class="ptab" onclick="setPeriod('month',this)" style="flex:1;padding:7px 0;border:none;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;background:none;color:var(--text2);font-weight:400">Monthly</button>
+      <button class="ptab" onclick="setPeriod('all',this)" style="flex:1;padding:7px 0;border:none;border-radius:8px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .15s;background:none;color:var(--text2);font-weight:400">Annually</button>
+    </div>
+  </div>
+
+  <div id="trend-swipe" style="flex:1;overflow:hidden;position:relative">
+    <div id="trend-track" style="display:flex;height:100%;transition:transform .3s cubic-bezier(.4,0,.2,1);will-change:transform">
+
+      <!-- WEEKLY panel -->
+      <div class="trend-panel" style="min-width:100%;overflow-y:auto;padding:0 18px calc(var(--safe-bottom)+90px)">
+        <!-- Period nav -->
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px">
+          <button onclick="shiftWeek(-1)" style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:none;font-size:18px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">‹</button>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:500;color:var(--text)" id="w-label">—</div>
+            <div style="font-size:11px;color:var(--text3)" id="w-sublabel"></div>
+          </div>
+          <button onclick="shiftWeek(1)" id="w-next" style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:none;font-size:18px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">›</button>
+        </div>
+        <div class="metrics">
+          <div class="met"><div class="met-label">Avg sleep</div><div class="met-val" id="w-avg">—</div><div class="met-sub">per night</div></div>
+          <div class="met"><div class="met-label">Bedtime</div><div class="met-val" id="w-bed">—</div><div class="met-sub">average</div></div>
+          <div class="met"><div class="met-label">Wake up</div><div class="met-val" id="w-wake">—</div><div class="met-sub">average</div></div>
+        </div>
+        <div class="chart-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="chart-title" style="margin:0">Each night</div>
+            <div class="legend" style="margin:0;gap:8px">
+              <span><i style="background:#1D9E75"></i> 7h+</span>
+              <span><i style="background:#EF9F27"></i> 5–7h</span>
+              <span><i style="background:#E24B4A"></i> &lt;5h</span>
+            </div>
+          </div>
+          <div class="chart-inner" style="height:170px"><canvas id="chart-w-dur"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Bedtime each night</div>
+          <div class="chart-inner" style="height:130px"><canvas id="chart-w-bed"></canvas></div>
+        </div>
+        <div class="sec-label">Insights</div>
+        <div id="w-insights"></div>
+      </div>
+
+      <!-- MONTHLY panel -->
+      <div class="trend-panel" style="min-width:100%;overflow-y:auto;padding:0 18px calc(var(--safe-bottom)+90px)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px">
+          <button onclick="shiftMonth(-1)" style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:none;font-size:18px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">‹</button>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:500;color:var(--text)" id="m-label">—</div>
+            <div style="font-size:11px;color:var(--text3)" id="m-sublabel"></div>
+          </div>
+          <button onclick="shiftMonth(1)" id="m-next" style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:none;font-size:18px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">›</button>
+        </div>
+        <div class="metrics">
+          <div class="met"><div class="met-label">Avg sleep</div><div class="met-val" id="m-avg">—</div><div class="met-sub">per night</div></div>
+          <div class="met"><div class="met-label">Bedtime</div><div class="met-val" id="m-bed">—</div><div class="met-sub">average</div></div>
+          <div class="met"><div class="met-label">Wake up</div><div class="met-val" id="m-wake">—</div><div class="met-sub">average</div></div>
+        </div>
+        <div class="chart-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <div class="chart-title" style="margin:0">Each night</div>
+            <div class="legend" style="margin:0;gap:8px">
+              <span><i style="background:#1D9E75"></i> 7h+</span>
+              <span><i style="background:#EF9F27"></i> 5–7h</span>
+            </div>
+          </div>
+          <div class="chart-inner" style="height:160px"><canvas id="chart-m-dur"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Week-by-week average</div>
+          <div class="chart-inner" style="height:140px"><canvas id="chart-m-week"></canvas></div>
+        </div>
+        <div class="sec-label">Insights</div>
+        <div id="m-insights"></div>
+      </div>
+
+      <!-- ANNUALLY panel -->
+      <div class="trend-panel" style="min-width:100%;overflow-y:auto;padding:0 18px calc(var(--safe-bottom)+90px)">
+        <div style="display:flex;align-items:center;justify-content:space-between;padding:14px 0 10px">
+          <button onclick="shiftYear(-1)" style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:none;font-size:18px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">‹</button>
+          <div style="text-align:center">
+            <div style="font-size:14px;font-weight:500;color:var(--text)" id="a-label">—</div>
+            <div style="font-size:11px;color:var(--text3)" id="a-sublabel"></div>
+          </div>
+          <button onclick="shiftYear(1)" id="a-next" style="width:32px;height:32px;border-radius:50%;border:0.5px solid var(--border2);background:none;font-size:18px;color:var(--text2);cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:'DM Sans',sans-serif">›</button>
+        </div>
+        <div class="metrics" style="grid-template-columns:repeat(2,minmax(0,1fr))">
+          <div class="met"><div class="met-label">Year avg</div><div class="met-val" id="a-avg">—</div><div class="met-sub">per night</div></div>
+          <div class="met"><div class="met-label">Nights logged</div><div class="met-val" id="a-count">—</div><div class="met-sub" id="a-count-sub"></div></div>
+          <div class="met"><div class="met-label">Best night</div><div class="met-val" id="a-best">—</div><div class="met-sub" id="a-best-date"></div></div>
+          <div class="met"><div class="met-label">Total sleep</div><div class="met-val" id="a-total">—</div><div class="met-sub">hours</div></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Monthly average</div>
+          <div class="chart-inner" style="height:170px"><canvas id="chart-a-mon"></canvas></div>
+        </div>
+        <div class="chart-box">
+          <div class="chart-title">Avg bedtime by month</div>
+          <div class="chart-inner" style="height:140px"><canvas id="chart-a-bed"></canvas></div>
+        </div>
+        <div class="sec-label">Insights</div>
+        <div id="a-insights"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- HISTORY SCREEN -->
+<div class="screen" id="scr-history">
+  <div class="scroll">
+    <div class="page-header">
+      <div class="eyebrow">All entries</div>
+      <h1><strong>History</strong></h1>
+    </div>
+    <div id="history-list"></div>
+  </div>
+</div>
+
+<!-- GOALS SCREEN -->
+<div class="screen" id="scr-goals">
+  <div class="scroll">
+    <div class="page-header">
+      <div class="eyebrow">Personal targets</div>
+      <h1><strong>Goals</strong></h1>
+    </div>
+
+    <div class="sec-label">Sleep duration</div>
+    <div class="entry-card">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5">Minimum total sleep per night (including naps)</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px" id="dur-presets">
+        <button onclick="setGoalDur(6,this)" class="gpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">6h</button>
+        <button onclick="setGoalDur(6.5,this)" class="gpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">6.5h</button>
+        <button onclick="setGoalDur(7,this)" class="gpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">7h</button>
+        <button onclick="setGoalDur(8,this)" class="gpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">8h</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;height:0.5px;background:var(--border)"></div>
+        <span style="font-size:12px;color:var(--text3)">or custom</span>
+        <div style="flex:1;height:0.5px;background:var(--border)"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+        <input type="number" id="goal-dur-custom" min="4" max="12" step="0.5" placeholder="e.g. 7.5" style="flex:1;padding:9px 11px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);font-size:14px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none">
+        <span style="font-size:13px;color:var(--text2)">hours</span>
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="goal-dur-current"></div>
+    </div>
+
+    <div class="sec-label">Bedtime</div>
+    <div class="entry-card">
+      <div style="font-size:13px;color:var(--text2);margin-bottom:12px;line-height:1.5">Latest time you want to be in bed by</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px">
+        <button onclick="setGoalBed('22:00',this)" class="bpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">10pm</button>
+        <button onclick="setGoalBed('22:30',this)" class="bpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">10:30</button>
+        <button onclick="setGoalBed('23:00',this)" class="bpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">11pm</button>
+        <button onclick="setGoalBed('23:30',this)" class="bpreset" style="padding:11px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:13px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">11:30</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;height:0.5px;background:var(--border)"></div>
+        <span style="font-size:12px;color:var(--text3)">or custom</span>
+        <div style="flex:1;height:0.5px;background:var(--border)"></div>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;margin-top:12px">
+        <input type="time" id="goal-bed-custom" style="flex:1;padding:9px 11px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);font-size:14px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;-webkit-appearance:none">
+      </div>
+      <div style="margin-top:10px;font-size:12px;color:var(--text3)" id="goal-bed-current"></div>
+    </div>
+
+    <button class="save-btn" onclick="saveGoals()" style="margin-top:4px">Save goals</button>
+
+    <div class="sec-label" style="margin-top:20px">7-day goal hit rate</div>
+    <div id="goal-week-stats"></div>
+  </div>
+</div>
+
+<!-- SETTINGS SCREEN -->
+<div class="screen" id="scr-settings">
+  <div class="scroll">
+    <div class="page-header">
+      <div class="eyebrow">Backup &amp; data</div>
+      <h1><strong>Settings</strong></h1>
+    </div>
+
+    <!-- GOOGLE SHEETS SYNC -->
+    <div class="sec-label">Google Sheets sync</div>
+    <div class="entry-card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:36px;height:36px;border-radius:9px;background:#e8f5e9;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="2" fill="#34A853"/><line x1="3" y1="8" x2="21" y2="8" stroke="white" stroke-width="1.5"/><line x1="3" y1="13" x2="21" y2="13" stroke="white" stroke-width="1.5"/><line x1="8" y1="8" x2="8" y2="21" stroke="white" stroke-width="1.5"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:500;color:var(--text)">Auto-sync to Google Sheets</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:1px" id="sync-status-line">Not connected</div>
+        </div>
+        <div style="margin-left:auto;width:10px;height:10px;border-radius:50%;background:var(--border2)" id="sync-dot"></div>
+      </div>
+
+      <div id="sync-setup-area">
+        <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:12px">Paste your Apps Script Web App URL below. Once connected, every entry syncs automatically.</div>
+        <input type="url" id="sheets-url" placeholder="https://script.google.com/macros/s/…/exec" style="width:100%;padding:9px 11px;border:0.5px solid var(--border2);border-radius:var(--radius-sm);background:var(--surface2);font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;margin-bottom:10px">
+        <button class="save-btn" onclick="connectSheets()" style="margin-bottom:10px">Connect</button>
+        <button onclick="showSetupGuide()" style="width:100%;padding:10px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);font-family:'DM Sans',sans-serif;cursor:pointer">How to set up Google Sheets ↓</button>
+      </div>
+
+      <div id="sync-connected-area" style="display:none">
+        <button class="save-btn" onclick="syncAllToSheets()" id="sync-all-btn" style="margin-bottom:8px">Sync all data now</button>
+        <button onclick="confirmRestore()" id="restore-btn" style="width:100%;padding:11px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius-sm);font-size:14px;font-weight:500;color:var(--text);font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:8px">Restore from Sheets</button>
+        <div id="restore-confirm" style="display:none;background:var(--surface2);border-radius:10px;padding:12px;margin-bottom:8px">
+          <div style="font-size:13px;color:var(--text);font-weight:500;margin-bottom:6px">Replace local data with Sheets backup?</div>
+          <div style="font-size:12px;color:var(--text2);margin-bottom:12px;line-height:1.5">This will overwrite everything currently in the app with data from your Google Sheet. Your local data will be lost.</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+            <button onclick="cancelRestore()" style="padding:10px;border-radius:8px;border:0.5px solid var(--border2);background:none;font-size:13px;color:var(--text2);font-family:'DM Sans',sans-serif;cursor:pointer">Cancel</button>
+            <button onclick="restoreFromSheets()" id="restore-go-btn" style="padding:10px;border-radius:8px;border:none;background:#E24B4A;font-size:13px;font-weight:500;color:white;font-family:'DM Sans',sans-serif;cursor:pointer">Restore</button>
+          </div>
+        </div>
+        <button onclick="disconnectSheets()" style="width:100%;padding:10px;background:none;border:0.5px solid var(--border2);border-radius:var(--radius-sm);font-size:13px;color:var(--text2);font-family:'DM Sans',sans-serif;cursor:pointer">Disconnect</button>
+      </div>
+    </div>
+
+    <!-- SETUP GUIDE -->
+    <div id="setup-guide" style="display:none">
+      <div class="entry-card" style="margin-bottom:8px">
+        <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:10px">5-step setup guide</div>
+        <div id="guide-steps"></div>
+      </div>
+    </div>
+
+    <!-- CSV EXPORT -->
+    <div class="sec-label">Export data</div>
+    <div class="entry-card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px">
+        <div style="width:36px;height:36px;border-radius:9px;background:var(--surface2);display:flex;align-items:center;justify-content:center;flex-shrink:0">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--text2)" stroke-width="1.8" stroke-linecap="round"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <div>
+          <div style="font-size:14px;font-weight:500;color:var(--text)">Download as CSV</div>
+          <div style="font-size:12px;color:var(--text2);margin-top:1px" id="csv-count-line">—</div>
+        </div>
+      </div>
+      <button class="save-btn" onclick="exportCSV()">Download CSV</button>
+    </div>
+
+    <!-- DATA INFO -->
+    <div class="sec-label">Local storage</div>
+    <div class="entry-card">
+      <div style="font-size:13px;color:var(--text2);line-height:1.6;margin-bottom:10px">Your data is saved in this browser's local storage. It stays on this device unless you clear browser data.</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">Total entries</span>
+        <span style="font-size:13px;font-weight:500;color:var(--text)" id="st-entries">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:0.5px solid var(--border)">
+        <span style="font-size:13px;color:var(--text2)">Date range</span>
+        <span style="font-size:13px;font-weight:500;color:var(--text)" id="st-range">—</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0">
+        <span style="font-size:13px;color:var(--text2)">Storage used</span>
+        <span style="font-size:13px;font-weight:500;color:var(--text)" id="st-size">—</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NAV -->
+<div class="nav">
+  <button class="nav-btn active" id="nb-0" onclick="goTo('log',0)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+    <span>Log</span>
+  </button>
+  <button class="nav-btn" id="nb-1" onclick="goTo('trends',1)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <span>Trends</span>
+  </button>
+  <button class="nav-btn" id="nb-2" onclick="goTo('history',2)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>
+    <span>History</span>
+  </button>
+  <button class="nav-btn" id="nb-3" onclick="goTo('goals',3)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>
+    <span>Goals</span>
+  </button>
+  <button class="nav-btn" id="nb-4" onclick="goTo('settings',4)">
+    <svg viewBox="0 0 24 24" fill="none" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+    <span>Settings</span>
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- NAP MODAL -->
+<div id="nap-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.45);z-index:200;align-items:flex-end;justify-content:center">
+  <div style="background:var(--surface);border-radius:20px 20px 0 0;padding:24px 20px calc(var(--safe-bottom)+24px);width:100%;max-width:430px">
+    <div style="font-size:16px;font-weight:500;color:var(--text);margin-bottom:4px">Log a nap</div>
+    <div style="font-size:13px;color:var(--text2);margin-bottom:20px">How long did you sleep?</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:16px" id="nap-presets">
+      <button onclick="setNapMins(20)" style="padding:12px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">20m</button>
+      <button onclick="setNapMins(30)" style="padding:12px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">30m</button>
+      <button onclick="setNapMins(45)" style="padding:12px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">45m</button>
+      <button onclick="setNapMins(60)" style="padding:12px 0;border-radius:10px;border:0.5px solid var(--border2);background:var(--surface2);font-size:14px;font-weight:500;color:var(--text);cursor:pointer;font-family:'DM Sans',sans-serif">1h</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px">
+      <div style="flex:1;height:0.5px;background:var(--border)"></div>
+      <span style="font-size:12px;color:var(--text3)">or enter minutes</span>
+      <div style="flex:1;height:0.5px;background:var(--border)"></div>
+    </div>
+    <input type="number" id="nap-custom" min="1" max="480" placeholder="e.g. 90" style="width:100%;padding:11px;border:0.5px solid var(--border2);border-radius:10px;background:var(--surface2);font-size:15px;color:var(--text);font-family:'DM Sans',sans-serif;outline:none;margin-bottom:12px;-webkit-appearance:none">
+    <button onclick="saveQuickNap()" style="width:100%;padding:13px;background:var(--text);color:var(--bg);border:none;border-radius:10px;font-size:14px;font-weight:500;font-family:'DM Sans',sans-serif;cursor:pointer;margin-bottom:10px">Save nap</button>
+    <button onclick="closeNapModal()" style="width:100%;padding:11px;background:none;border:0.5px solid var(--border2);border-radius:10px;font-size:14px;color:var(--text2);font-family:'DM Sans',sans-serif;cursor:pointer">Cancel</button>
+  </div>
+</div>
+
+<script>
+let logs = JSON.parse(localStorage.getItem('slp3') || '[]');
+let activeType = 'bedtime';
+let isSyncing = false;
+
+function save() {
+  localStorage.setItem('slp3', JSON.stringify(logs));
+}
+
+function saveAndSync(entry) {
+  save();
+  if (sheetsUrl && entry) syncEntryToSheets(entry);
+}
+
+// Merge incoming Sheets data with local — keep newest version of each entry by id
+function mergeFromSheets(sheetsData) {
+  if (!Array.isArray(sheetsData) || !sheetsData.length) return false;
+  const localById = {};
+  logs.forEach(l => localById[l.id] = l);
+  let changed = false;
+  sheetsData.forEach(l => {
+    if (!localById[l.id]) { localById[l.id] = l; changed = true; }
+  });
+  if (changed) {
+    logs = Object.values(localById).sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''));
+    save();
+  }
+  return changed;
+}
+
+// Background fetch from Sheets on startup — JSONP to bypass CORS
+function backgroundSyncFromSheets() {
+  if (!sheetsUrl || isSyncing) return;
+  isSyncing = true;
+  const callbackName = 'sleepBgSync_' + Date.now();
+  const script = document.createElement('script');
+  let done = false;
+  const cleanup = () => { if (script.parentNode) script.parentNode.removeChild(script); delete window[callbackName]; };
+  setTimeout(() => { if (!done) { done = true; cleanup(); isSyncing = false; } }, 15000);
+  window[callbackName] = function(data) {
+    if (done) return; done = true; cleanup(); isSyncing = false;
+    const changed = mergeFromSheets(data);
+    localStorage.setItem('lastSyncTime', Date.now());
+    if (changed) {
+      renderToday();
+      showSyncBadge(`Updated from Sheets — ${logs.length} entries`);
+    }
+  };
+  script.onerror = () => { if (!done) { done = true; cleanup(); isSyncing = false; } };
+  script.src = `${sheetsUrl}?action=getAll&callback=${callbackName}`;
+  document.head.appendChild(script);
+}
+
+function showSyncBadge(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+function nowStr() {
+  const n = new Date();
+  return `${String(n.getHours()).padStart(2,'0')}:${String(n.getMinutes()).padStart(2,'0')}`;
+}
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function fmtTime(t) {
+  if (!t) return '—';
+  const [h,m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'pm' : 'am';
+  return `${h%12||12}:${String(m).padStart(2,'0')}${ap}`;
+}
+function fmtTimeMono(t) {
+  if (!t) return '—';
+  const [h,m] = t.split(':').map(Number);
+  const ap = h >= 12 ? 'pm' : 'am';
+  return `${String(h%12||12).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+}
+function fmtDate(d) {
+  return new Date(d + 'T12:00').toLocaleDateString([], {weekday:'short', month:'short', day:'numeric'});
+}
+function minsToHM(m) {
+  if (!m || m <= 0) return '—';
+  const h = Math.floor(m/60), mm = m%60;
+  return mm ? `${h}h ${mm}m` : `${h}h`;
+}
+function avgTimeStr(times) {
+  if (!times.length) return '—';
+  const mins = times.map(t => { const [h,m] = t.split(':').map(Number); return h*60+m; });
+  const avg = Math.round(mins.reduce((a,b) => a+b, 0) / mins.length);
+  const h = Math.floor(avg/60)%24, m = avg%60;
+  return fmtTime(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`);
+}
+function dotColor(type) {
+  return type === 'bedtime' ? '#534AB7' : type === 'wakeup' ? '#1D9E75' : '#BA7517';
+}
+
+function updateClock() {
+  const n = new Date();
+  document.getElementById('sb-time').textContent = `${n.getHours()}:${String(n.getMinutes()).padStart(2,'0')}`;
+  document.getElementById('q-bed').textContent = fmtTimeMono(nowStr());
+  document.getElementById('q-wake').textContent = fmtTimeMono(nowStr());
+  const days = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const d = new Date();
+  document.getElementById('hdr-date').textContent = `${days[d.getDay()]}, ${months[d.getMonth()]} ${d.getDate()}`;
+  const h = d.getHours();
+  const greet = h < 12 ? 'Good morning, <strong>Sunny</strong>' : h < 17 ? 'Good afternoon, <strong>Sunny</strong>' : 'Good evening, <strong>Sunny</strong>';
+  document.getElementById('hdr-greet').innerHTML = greet;
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg; el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2000);
+}
+
+function quickLog(type) {
+  const entry = { id: Date.now(), date: todayStr(), type, time: nowStr(), note: '' };
+  logs.push(entry);
+  saveAndSync(entry); renderToday();
+  const msgs = { bedtime: 'Bedtime logged', wakeup: 'Wake up logged' };
+  toast(msgs[type]);
+}
+
+function openNapModal() {
+  document.getElementById('nap-custom').value = '';
+  document.getElementById('nap-modal').style.display = 'flex';
+}
+function closeNapModal() {
+  document.getElementById('nap-modal').style.display = 'none';
+}
+function setNapMins(m) {
+  document.getElementById('nap-custom').value = m;
+}
+function saveQuickNap() {
+  const mins = parseInt(document.getElementById('nap-custom').value);
+  if (!mins || mins <= 0) { toast('Enter nap duration'); return; }
+  const entry = { id: Date.now(), date: todayStr(), type: 'nap', time: nowStr(), note: '', napMins: mins };
+  logs.push(entry);
+  saveAndSync(entry); renderToday();
+  closeNapModal();
+  toast(`Nap logged · ${minsToHM(mins)}`);
+}
+
+function selType(t, el) {
+  activeType = t;
+  document.querySelectorAll('.pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  document.getElementById('nap-dur-field').style.display = t === 'nap' ? 'block' : 'none';
+  document.getElementById('m-time').closest('.field').style.display = t === 'nap' ? 'none' : 'block';
+}
+
+function saveManual() {
+  const date = document.getElementById('m-date').value || todayStr();
+  const note = document.getElementById('m-note').value.trim();
+  if (activeType === 'nap') {
+    const mins = parseInt(document.getElementById('m-napdur').value);
+    if (!mins || mins <= 0) { toast('Enter nap duration in minutes'); return; }
+    const entry = { id: Date.now(), date, type: 'nap', time: nowStr(), note, napMins: mins };
+    logs.push(entry);
+    saveAndSync(entry); renderToday();
+    document.getElementById('m-napdur').value = '';
+    document.getElementById('m-note').value = '';
+    toast(`Nap saved · ${minsToHM(mins)}`);
+    return;
+  }
+  const time = document.getElementById('m-time').value;
+  if (!time) { toast('Pick a time first'); return; }
+  const entry = { id: Date.now(), date, type: activeType, time, note };
+  logs.push(entry);
+  saveAndSync(entry); renderToday();
+  document.getElementById('m-time').value = '';
+  document.getElementById('m-note').value = '';
+  toast('Saved');
+}
+
+function delLog(id) {
+  logs = logs.filter(l => l.id !== id);
+  save(); renderToday();
+}
+
+function renderToday() {
+  const tl = logs.filter(l => l.date === todayStr()).sort((a,b) => a.time.localeCompare(b.time));
+  const el = document.getElementById('today-list');
+  if (!tl.length) {
+    el.innerHTML = '<div class="empty-msg">Nothing logged today yet.<br>Tap a card above to start.</div>';
+    renderGoalTodayCard();
+    return;
+  }
+  el.innerHTML = tl.map(l => `
+    <div class="log-row">
+      <div class="dot" style="background:${dotColor(l.type)}"></div>
+      <div class="log-info">
+        <div class="log-type">${l.type === 'bedtime' ? 'Bedtime' : l.type === 'wakeup' ? 'Wake up' : 'Nap'}</div>
+        ${l.note ? `<div class="log-note">${l.note}</div>` : ''}
+      </div>
+      <div class="log-t">${l.type === 'nap' ? minsToHM(l.napMins||0) : fmtTime(l.time)}</div>
+      <button class="del-btn" onclick="delLog(${l.id})">✕</button>
+    </div>`).join('');
+  renderGoalTodayCard();
+}
+
+function isDark(){return window.matchMedia&&window.matchMedia('(prefers-color-scheme:dark)').matches;}
+const charts={};
+function mkChart(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart(document.getElementById(id),cfg);return charts[id];}
+
+function getDayRange(startDate, endDate) {
+  const days=[], cur=new Date(startDate+'T12:00'), end=new Date(endDate+'T12:00');
+  while(cur<=end){
+    const date=cur.toISOString().slice(0,10);
+    const dl=logs.filter(l=>l.date===date);
+    const beds=dl.filter(l=>l.type==='bedtime').map(l=>l.time);
+    const wakes=dl.filter(l=>l.type==='wakeup').map(l=>l.time);
+    const napMins=dl.filter(l=>l.type==='nap').reduce((s,x)=>s+(x.napMins||0),0);
+    let nightMins=null;
+    if(beds.length&&wakes.length){const b=beds[0].split(':').map(Number),w=wakes[wakes.length-1].split(':').map(Number);let bm=b[0]*60+b[1],wm=w[0]*60+w[1];if(wm<bm)wm+=1440;nightMins=wm-bm;}
+    const totalMins=(nightMins!==null||napMins>0)?((nightMins||0)+napMins):null;
+    const hrs=totalMins!==null?parseFloat((totalMins/60).toFixed(1)):null;
+    const wd=new Date(date+'T12:00');
+    days.push({date,label:wd.toLocaleDateString([],{weekday:'short'}),shortDate:wd.toLocaleDateString([],{month:'short',day:'numeric'}),hrs,nightMins,napMins,beds,wakes});
+    cur.setDate(cur.getDate()+1);
+  }
+  return days;
+}
+
+function weekStart(offset){
+  const d=new Date(); d.setDate(d.getDate()-d.getDay()+1+offset*7);
+  return d.toISOString().slice(0,10);
+}
+function weekEnd(offset){
+  const d=new Date(); d.setDate(d.getDate()-d.getDay()+7+offset*7);
+  return d.toISOString().slice(0,10);
+}
+function monthStart(offset){
+  const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset);
+  return d.toISOString().slice(0,10);
+}
+function monthEnd(offset){
+  const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()+offset+1); d.setDate(0);
+  return d.toISOString().slice(0,10);
+}
+
+function makeBarLine(id,labels,data){
+  const dark=isDark(),gc=dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)',tc=dark?'#555250':'#b0aea8';
+  const goal=goals.dur||7;
+  mkChart(id,{type:'bar',data:{labels,datasets:[
+    {data,backgroundColor:data.map(v=>v===null?(dark?'#2a2a2a':'#e8e6e0'):v>=goal?'#1D9E75':v>=(goal-2)?'#EF9F27':'#E24B4A'),borderRadius:4,borderSkipped:false},
+    {data:Array(labels.length).fill(goal),type:'line',borderColor:dark?'rgba(29,158,117,0.5)':'rgba(29,158,117,0.4)',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?(ctx.raw!==null?`${ctx.raw}h`:'No data'):`${goal}h goal`}}},scales:{y:{min:0,max:12,ticks:{callback:v=>v+'h',font:{size:10},color:tc},grid:{color:gc}},x:{ticks:{font:{size:11},color:tc,autoSkip:true,maxTicksLimit:10},grid:{display:false}}}}});
+}
+
+function makeBedLine(id,labels,data){
+  const dark=isDark(),gc=dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)',tc=dark?'#555250':'#b0aea8';
+  mkChart(id,{type:'line',data:{labels,datasets:[{data,borderColor:'#534AB7',backgroundColor:dark?'rgba(83,74,183,0.1)':'rgba(83,74,183,0.06)',borderWidth:2,pointRadius:data.length>15?0:3,pointBackgroundColor:'#534AB7',fill:true,tension:0.3,spanGaps:true}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>{if(ctx.raw===null)return'No data';const m=ctx.raw%1440,h=Math.floor(m/60)%24,mn=m%60;return fmtTime(`${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`);}}},},scales:{y:{ticks:{callback:v=>{const m=v%1440,h=Math.floor(m/60)%24,mn=m%60;return fmtTime(`${String(h).padStart(2,'0')}:${String(mn).padStart(2,'0')}`);},font:{size:10},color:tc,maxTicksLimit:4},grid:{color:gc}},x:{ticks:{font:{size:11},color:tc,autoSkip:true,maxTicksLimit:6},grid:{display:false}}}}});
+}
+
+function buildInsights(days,label){
+  const valid=days.filter(d=>d.hrs!==null);
+  if(!valid.length)return'<div class="empty-msg">No data logged for this period.</div>';
+  const avgH=parseFloat((valid.reduce((a,d)=>a+d.hrs,0)/valid.length).toFixed(1));
+  const ins=[];
+  ins.push({e:`${label} average`,v:`${avgH}h per night`,s:avgH>=7?'Meeting the recommended 7–9h.':avgH>=6?'Slightly under — aim for 30 min more.':'Under target. Small gains add up fast.'});
+  const best=valid.reduce((a,b)=>b.hrs>a.hrs?b:a);
+  const worst=valid.reduce((a,b)=>b.hrs<a.hrs?b:a);
+  ins.push({e:'Best night',v:`${best.hrs}h`,s:fmtDate(best.date)});
+  if(valid.length>2)ins.push({e:'Shortest night',v:`${worst.hrs}h`,s:fmtDate(worst.date)});
+  const varr=valid.map(d=>d.hrs),mx=Math.max(...varr),mn=Math.min(...varr);
+  if(valid.length>3&&mx-mn>2)ins.push({e:'Variability',v:`${(mx-mn).toFixed(1)}h range`,s:'High variance can affect sleep quality.'});
+  const napDays=valid.filter(d=>d.napMins>0);
+  if(napDays.length)ins.push({e:'Nap days',v:`${napDays.length} of ${valid.length}`,s:`Avg nap: ${minsToHM(Math.round(napDays.reduce((a,d)=>a+d.napMins,0)/napDays.length))}`});
+  return ins.map(i=>`<div class="insight"><div class="ins-eyebrow">${i.e}</div><div class="ins-val">${i.v}</div>${i.s?`<div class="ins-sub">${i.s}</div>`:''}</div>`).join('');
+}
+
+// ── WEEKLY ──
+let weekOffset=0;
+function shiftWeek(d){
+  const next=weekOffset+d;
+  if(next>0)return;
+  weekOffset=next;
+  renderWeek();
+}
+function renderWeek(){
+  const ws=weekStart(weekOffset), we=weekEnd(weekOffset);
+  const days=getDayRange(ws, we>todayStr()?todayStr():we);
+  const valid=days.filter(d=>d.hrs!==null);
+  const isCurrentWeek=weekOffset===0;
+  // Label
+  const wsd=new Date(ws+'T12:00'), wed=new Date((we>todayStr()?todayStr():we)+'T12:00');
+  document.getElementById('w-label').textContent=isCurrentWeek?'This week':`Week of ${wsd.toLocaleDateString([],{month:'short',day:'numeric'})}`;
+  document.getElementById('w-sublabel').textContent=`${wsd.toLocaleDateString([],{month:'short',day:'numeric'})} – ${wed.toLocaleDateString([],{month:'short',day:'numeric'})}`;
+  document.getElementById('w-next').style.opacity=isCurrentWeek?'0.25':'1';
+  document.getElementById('w-next').style.pointerEvents=isCurrentWeek?'none':'auto';
+  // Metrics
+  const avgH=valid.length?parseFloat((valid.reduce((a,d)=>a+d.hrs,0)/valid.length).toFixed(1)):null;
+  document.getElementById('w-avg').textContent=avgH!==null?`${avgH}h`:'—';
+  document.getElementById('w-bed').textContent=avgTimeStr(days.flatMap(d=>d.beds));
+  document.getElementById('w-wake').textContent=avgTimeStr(days.flatMap(d=>d.wakes));
+  makeBarLine('chart-w-dur',days.map(d=>d.label),days.map(d=>d.hrs));
+  const bm=days.map(d=>{if(!d.beds.length)return null;const[h,m]=d.beds[0].split(':').map(Number);let mins=h*60+m;if(mins<720)mins+=1440;return mins;});
+  makeBedLine('chart-w-bed',days.map(d=>d.label),bm);
+  document.getElementById('w-insights').innerHTML=buildInsights(days,isCurrentWeek?'This week':'Weekly');
+}
+
+// ── MONTHLY ──
+let monthOffset=0;
+function shiftMonth(d){
+  const next=monthOffset+d;
+  if(next>0)return;
+  monthOffset=next;
+  renderMonth();
+}
+function renderMonth(){
+  const ms=monthStart(monthOffset), me=monthEnd(monthOffset);
+  const clampedEnd=me>todayStr()?todayStr():me;
+  const days=getDayRange(ms,clampedEnd);
+  const valid=days.filter(d=>d.hrs!==null);
+  const isCurrentMonth=monthOffset===0;
+  const mDate=new Date(ms+'T12:00');
+  document.getElementById('m-label').textContent=mDate.toLocaleDateString([],{month:'long',year:'numeric'});
+  document.getElementById('m-sublabel').textContent=`${valid.length} night${valid.length!==1?'s':''} logged`;
+  document.getElementById('m-next').style.opacity=isCurrentMonth?'0.25':'1';
+  document.getElementById('m-next').style.pointerEvents=isCurrentMonth?'none':'auto';
+  // Metrics
+  const avgH=valid.length?parseFloat((valid.reduce((a,d)=>a+d.hrs,0)/valid.length).toFixed(1)):null;
+  document.getElementById('m-avg').textContent=avgH!==null?`${avgH}h`:'—';
+  document.getElementById('m-bed').textContent=avgTimeStr(days.flatMap(d=>d.beds));
+  document.getElementById('m-wake').textContent=avgTimeStr(days.flatMap(d=>d.wakes));
+  makeBarLine('chart-m-dur',days.map(d=>d.shortDate),days.map(d=>d.hrs));
+  // Week-by-week breakdown within month
+  const wLabels=[],wVals=[];
+  for(let i=0;i<5;i++){
+    const slice=days.slice(i*7,(i+1)*7).filter(d=>d.hrs!==null);
+    if(!slice.length)continue;
+    const wAvg=parseFloat((slice.reduce((a,d)=>a+d.hrs,0)/slice.length).toFixed(1));
+    const wStart=days[i*7]?.shortDate||'';
+    wLabels.push(`Wk ${i+1} · ${wStart}`);
+    wVals.push(wAvg);
+  }
+  const dark=isDark(),gc=dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)',tc=dark?'#555250':'#b0aea8';
+  mkChart('chart-m-week',{type:'bar',data:{labels:wLabels,datasets:[
+    {data:wVals,backgroundColor:wVals.map(v=>v>=7?'#1D9E75':v>=5?'#EF9F27':'#E24B4A'),borderRadius:5,borderSkipped:false},
+    {data:Array(wLabels.length).fill(7),type:'line',borderColor:dark?'rgba(29,158,117,0.5)':'rgba(29,158,117,0.4)',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?`${ctx.raw}h avg`:'7h goal'}}},scales:{y:{min:0,max:12,ticks:{callback:v=>v+'h',font:{size:10},color:tc},grid:{color:gc}},x:{ticks:{font:{size:10},color:tc},grid:{display:false}}}}});
+  document.getElementById('m-insights').innerHTML=buildInsights(days,mDate.toLocaleDateString([],{month:'long'}));
+}
+
+// ── ANNUALLY ──
+let yearOffset=0;
+function shiftYear(d){
+  const next=yearOffset+d;
+  if(next>0)return;
+  yearOffset=next;
+  renderAll();
+}
+function renderAll(){
+  const year=new Date().getFullYear()+yearOffset;
+  const isCurrentYear=yearOffset===0;
+  const ys=`${year}-01-01`, ye=`${year}-12-31`;
+  const days=getDayRange(ys, ye>todayStr()?todayStr():ye);
+  const valid=days.filter(d=>d.hrs!==null);
+  document.getElementById('a-label').textContent=`${year}`;
+  document.getElementById('a-sublabel').textContent=isCurrentYear?'This year':`Jan – Dec ${year}`;
+  document.getElementById('a-next').style.opacity=isCurrentYear?'0.25':'1';
+  document.getElementById('a-next').style.pointerEvents=isCurrentYear?'none':'auto';
+  if(!valid.length){
+    ['a-avg','a-count','a-best','a-total'].forEach(id=>document.getElementById(id).textContent='—');
+    document.getElementById('a-best-date').textContent='';
+    document.getElementById('a-count-sub').textContent=`${year}`;
+    document.getElementById('a-insights').innerHTML='<div class="empty-msg">No data logged for this year.</div>';
+    return;
+  }
+  const avgH=parseFloat((valid.reduce((a,d)=>a+d.hrs,0)/valid.length).toFixed(1));
+  const best=valid.reduce((a,b)=>b.hrs>a.hrs?b:a);
+  const totalH=Math.round(valid.reduce((a,d)=>a+d.hrs,0));
+  document.getElementById('a-avg').textContent=`${avgH}h`;
+  document.getElementById('a-count').textContent=valid.length;
+  document.getElementById('a-count-sub').textContent=`nights in ${year}`;
+  document.getElementById('a-best').textContent=`${best.hrs}h`;
+  document.getElementById('a-best-date').textContent=fmtDate(best.date);
+  document.getElementById('a-total').textContent=`${totalH}h`;
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const mVals=monthNames.map((_,mi)=>{
+    const mDays=valid.filter(d=>parseInt(d.date.slice(5,7))-1===mi);
+    return mDays.length?parseFloat((mDays.reduce((a,d)=>a+d.hrs,0)/mDays.length).toFixed(1)):null;
+  });
+  const dark=isDark(),gc=dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.06)',tc=dark?'#555250':'#b0aea8';
+  mkChart('chart-a-mon',{type:'bar',data:{labels:monthNames,datasets:[
+    {data:mVals,backgroundColor:mVals.map(v=>v===null?(dark?'#2a2a2a':'#e8e6e0'):v>=7?'#1D9E75':v>=5?'#EF9F27':'#E24B4A'),borderRadius:4,borderSkipped:false},
+    {data:Array(12).fill(7),type:'line',borderColor:dark?'rgba(29,158,117,0.5)':'rgba(29,158,117,0.4)',borderWidth:1.5,borderDash:[4,3],pointRadius:0,fill:false}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{callbacks:{label:ctx=>ctx.datasetIndex===0?(ctx.raw!==null?`${ctx.raw}h avg`:'No data'):'7h goal'}}},scales:{y:{min:0,max:12,ticks:{callback:v=>v+'h',font:{size:10},color:tc},grid:{color:gc}},x:{ticks:{font:{size:11},color:tc},grid:{display:false}}}}});
+  const bedByMonth=monthNames.map((_,mi)=>{
+    const mDays=days.filter(d=>parseInt(d.date.slice(5,7))-1===mi&&d.beds.length);
+    if(!mDays.length)return null;
+    return Math.round(mDays.reduce((s,d)=>{const[h,m]=d.beds[0].split(':').map(Number);let mins=h*60+m;if(mins<720)mins+=1440;return s+mins;},0)/mDays.length);
+  });
+  makeBedLine('chart-a-bed',monthNames,bedByMonth);
+  document.getElementById('a-insights').innerHTML=buildInsights(valid,`${year}`);
+}
+
+let activePeriod='week';
+let renderedPeriods={};
+
+function setPeriod(p,el){
+  activePeriod=p;
+  document.querySelectorAll('.ptab').forEach(t=>{t.style.background='none';t.style.color='var(--text2)';t.style.fontWeight='400';});
+  el.style.background='var(--surface)';el.style.color='var(--text)';el.style.fontWeight='500';
+  const idx={week:0,month:1,all:2}[p];
+  document.getElementById('trend-track').style.transform=`translateX(-${idx*100}%)`;
+  if(!renderedPeriods[p]){renderPeriod(p);renderedPeriods[p]=true;}
+}
+
+function renderPeriod(p){if(p==='week')renderWeek();else if(p==='month')renderMonth();else renderAll();}
+
+function renderTrends(){
+  weekOffset=0; monthOffset=0; yearOffset=0;
+  renderedPeriods={};
+  renderWeek();
+  renderedPeriods['week']=true;
+  // reset tab to weekly
+  document.querySelectorAll('.ptab').forEach((t,i)=>{
+    t.style.background=i===0?'var(--surface)':'none';
+    t.style.color=i===0?'var(--text)':'var(--text2)';
+    t.style.fontWeight=i===0?'500':'400';
+  });
+  document.getElementById('trend-track').style.transition='none';
+  document.getElementById('trend-track').style.transform='translateX(0)';
+  setTimeout(()=>document.getElementById('trend-track').style.transition='transform .3s cubic-bezier(.4,0,.2,1)',50);
+  activePeriod='week';
+}
+
+(function(){
+  let sx=0,sy=0;
+  document.getElementById('trend-swipe').addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;},{passive:true});
+  document.getElementById('trend-swipe').addEventListener('touchend',e=>{
+    const dx=e.changedTouches[0].clientX-sx,dy=e.changedTouches[0].clientY-sy;
+    if(Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>40){
+      const periods=['week','month','all'],idx=periods.indexOf(activePeriod);
+      if(dx<0&&idx<2)document.querySelectorAll('.ptab')[idx+1].click();
+      else if(dx>0&&idx>0)document.querySelectorAll('.ptab')[idx-1].click();
+    }
+  },{passive:true});
+})();
+
+function renderHistory() {
+  const sorted = [...logs].sort((a,b) => b.date.localeCompare(a.date)||b.time.localeCompare(a.time));
+  const grouped = {};
+  sorted.forEach(l => { if (!grouped[l.date]) grouped[l.date]=[]; grouped[l.date].push(l); });
+  const el = document.getElementById('history-list');
+  const entries = Object.entries(grouped);
+  if (!entries.length) { el.innerHTML='<div class="empty-msg">No entries yet.</div>'; return; }
+  el.innerHTML = entries.map(([date, ls]) => {
+    const dayLogs = ls.sort((a,b) => a.time.localeCompare(b.time));
+    const beds = dayLogs.filter(l=>l.type==='bedtime');
+    const wakes = dayLogs.filter(l=>l.type==='wakeup');
+    const naps = dayLogs.filter(l=>l.type==='nap');
+    const napMins = naps.reduce((s,n) => s + (n.napMins||0), 0);
+    let nightMins = 0;
+    if (beds.length && wakes.length) {
+      const b=beds[0].time.split(':').map(Number), w=wakes[wakes.length-1].time.split(':').map(Number);
+      let bm=b[0]*60+b[1], wm=w[0]*60+w[1]; if(wm<bm)wm+=1440;
+      nightMins = wm-bm;
+    }
+    const totalMins = nightMins + napMins;
+    let durLabel = '';
+    if (nightMins && napMins) durLabel = `${minsToHM(nightMins)} + ${minsToHM(napMins)} nap = ${minsToHM(totalMins)}`;
+    else if (nightMins) durLabel = minsToHM(nightMins);
+    else if (napMins) durLabel = `${minsToHM(napMins)} nap`;
+    return `<div class="hist-group">
+      <div class="hist-date">${fmtDate(date)}${durLabel?' · '+durLabel:''}</div>
+      <div class="hist-card">
+        ${dayLogs.map(l=>`<div class="hist-row">
+          <div class="dot" style="background:${dotColor(l.type)}"></div>
+          <div style="flex:1;font-size:14px;color:var(--text)">${l.type==='bedtime'?'Bedtime':l.type==='wakeup'?'Wake up':'Nap'}${l.note?` <span style="color:var(--text2);font-size:12px">· ${l.note}</span>`:''}</div>
+          <div style="font-family:'DM Mono',monospace;font-size:13px;color:var(--text2)">${l.type==='nap'?minsToHM(l.napMins||0):fmtTime(l.time)}</div>
+          <button class="del-btn" onclick="delLog(${l.id})">✕</button>
+        </div>`).join('')}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ── GOALS ──
+let goals = JSON.parse(localStorage.getItem('slpGoals') || '{"dur":7,"bed":"23:00"}');
+
+function saveGoals() {
+  const customDur = parseFloat(document.getElementById('goal-dur-custom').value);
+  const customBed = document.getElementById('goal-bed-custom').value;
+  if (customDur && customDur >= 4 && customDur <= 12) goals.dur = customDur;
+  if (customBed) goals.bed = customBed;
+  localStorage.setItem('slpGoals', JSON.stringify(goals));
+  renderGoalScreen();
+  renderToday();
+  toast('Goals saved');
+}
+
+function setGoalDur(v, el) {
+  goals.dur = v;
+  document.getElementById('goal-dur-custom').value = v;
+  document.querySelectorAll('.gpreset').forEach(b => { b.style.background='var(--surface2)'; b.style.color='var(--text)'; b.style.borderColor='var(--border2)'; });
+  el.style.background='var(--text)'; el.style.color='var(--bg)'; el.style.borderColor='var(--text)';
+}
+function setGoalBed(v, el) {
+  goals.bed = v;
+  document.getElementById('goal-bed-custom').value = v;
+  document.querySelectorAll('.bpreset').forEach(b => { b.style.background='var(--surface2)'; b.style.color='var(--text)'; b.style.borderColor='var(--border2)'; });
+  el.style.background='var(--text)'; el.style.color='var(--bg)'; el.style.borderColor='var(--text)';
+}
+
+function bedMinsFromStr(t) {
+  if (!t) return null;
+  const [h,m] = t.split(':').map(Number);
+  let mins = h*60+m; if (mins < 720) mins += 1440; return mins;
+}
+
+function checkGoalsForDay(date) {
+  const dl = logs.filter(l => l.date === date);
+  const beds = dl.filter(l=>l.type==='bedtime').map(l=>l.time);
+  const wakes = dl.filter(l=>l.type==='wakeup').map(l=>l.time);
+  const napMins = dl.filter(l=>l.type==='nap').reduce((s,x)=>s+(x.napMins||0),0);
+  let totalHrs = null, bedTime = null;
+  if (beds.length && wakes.length) {
+    const b=beds[0].split(':').map(Number), w=wakes[wakes.length-1].split(':').map(Number);
+    let bm=b[0]*60+b[1], wm=w[0]*60+w[1]; if(wm<bm)wm+=1440;
+    totalHrs = parseFloat((((wm-bm)+napMins)/60).toFixed(1));
+    bedTime = beds[0];
+  } else if (napMins > 0) {
+    totalHrs = parseFloat((napMins/60).toFixed(1));
+  }
+  const durOk = totalHrs !== null && totalHrs >= goals.dur;
+  const bedGoalMins = bedMinsFromStr(goals.bed);
+  const bedActualMins = bedTime ? bedMinsFromStr(bedTime) : null;
+  const bedOk = bedActualMins !== null && bedActualMins <= bedGoalMins;
+  return { totalHrs, bedTime, durOk, bedOk, hasData: totalHrs !== null || bedTime !== null };
+}
+
+function renderGoalTodayCard() {
+  const el = document.getElementById('goal-today-card');
+  if (!goals.dur && !goals.bed) { el.innerHTML=''; return; }
+  const r = checkGoalsForDay(todayStr());
+  const durGoalSet = !!goals.dur, bedGoalSet = !!goals.bed;
+  let rows = '';
+  if (durGoalSet) {
+    const pct = r.totalHrs !== null ? Math.min(100, Math.round((r.totalHrs / goals.dur) * 100)) : 0;
+    const color = r.totalHrs === null ? 'var(--border2)' : r.durOk ? '#1D9E75' : '#EF9F27';
+    rows += `<div style="margin-bottom:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+        <span style="font-size:13px;color:var(--text2)">Sleep duration</span>
+        <span style="font-size:13px;font-weight:500;color:${r.durOk?'#1D9E75':r.totalHrs!==null?'#EF9F27':'var(--text3)'}">${r.totalHrs !== null ? r.totalHrs+'h' : '—'} <span style="font-weight:400;color:var(--text3)">/ ${goals.dur}h goal</span></span>
+      </div>
+      <div style="height:5px;background:var(--surface2);border-radius:3px;overflow:hidden">
+        <div style="height:100%;width:${pct}%;background:${color};border-radius:3px;transition:width .4s ease"></div>
+      </div>
+    </div>`;
+  }
+  if (bedGoalSet) {
+    const bedDisplay = r.bedTime ? fmtTime(r.bedTime) : '—';
+    const status = r.bedTime === null ? '' : r.bedOk ? '✓ On time' : `${Math.round((bedMinsFromStr(r.bedTime)-bedMinsFromStr(goals.bed))/10)*10/10|0}m late`;
+    const statusColor = r.bedOk ? '#1D9E75' : r.bedTime ? '#EF9F27' : 'var(--text3)';
+    rows += `<div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span style="font-size:13px;color:var(--text2)">Bedtime</span>
+        <span style="font-size:13px;font-weight:500;color:var(--text)">${bedDisplay} <span style="font-weight:400;color:var(--text3)">/ goal ${fmtTime(goals.bed)}</span></span>
+      </div>
+      ${status ? `<div style="font-size:12px;color:${statusColor};margin-top:3px;text-align:right">${status}</div>` : ''}
+    </div>`;
+  }
+  el.innerHTML = `<div style="background:var(--surface);border:0.5px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:2px">${rows}</div>`;
+}
+
+function renderGoalScreen() {
+  document.getElementById('goal-dur-current').textContent = goals.dur ? `Current goal: ${goals.dur}h` : 'No duration goal set';
+  document.getElementById('goal-bed-current').textContent = goals.bed ? `Current goal: before ${fmtTime(goals.bed)}` : 'No bedtime goal set';
+  document.getElementById('goal-dur-custom').value = goals.dur || '';
+  document.getElementById('goal-bed-custom').value = goals.bed || '';
+  // Highlight matching presets
+  document.querySelectorAll('.gpreset').forEach(b => { const match=parseFloat(b.textContent)===goals.dur; b.style.background=match?'var(--text)':'var(--surface2)'; b.style.color=match?'var(--bg)':'var(--text)'; b.style.borderColor=match?'var(--text)':'var(--border2)'; });
+  document.querySelectorAll('.bpreset').forEach(b => { const bv={'10pm':'22:00','10:30':'22:30','11pm':'23:00','11:30':'23:30'}[b.textContent]; const match=bv===goals.bed; b.style.background=match?'var(--text)':'var(--surface2)'; b.style.color=match?'var(--bg)':'var(--text)'; b.style.borderColor=match?'var(--text)':'var(--border2)'; });
+  // 7-day hit rate
+  const el = document.getElementById('goal-week-stats');
+  const rows = [];
+  for (let i=6; i>=0; i--) {
+    const d = new Date(); d.setDate(d.getDate()-i);
+    const date = d.toISOString().slice(0,10);
+    const r = checkGoalsForDay(date);
+    const label = i===0?'Today':i===1?'Yesterday':d.toLocaleDateString([],{weekday:'short',month:'short',day:'numeric'});
+    rows.push(`<div style="display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:0.5px solid var(--border)">
+      <div style="width:72px;font-size:13px;color:var(--text2);flex-shrink:0">${label}</div>
+      <div style="flex:1;display:flex;gap:8px">
+        ${goals.dur ? `<span style="font-size:12px;padding:3px 9px;border-radius:20px;background:${!r.hasData?'var(--surface2)':r.durOk?'var(--teal-light)':'var(--amber-light)'};color:${!r.hasData?'var(--text3)':r.durOk?'var(--teal)':'var(--amber)'}">
+          ${r.totalHrs !== null ? r.totalHrs+'h' : '—'}</span>` : ''}
+        ${goals.bed ? `<span style="font-size:12px;padding:3px 9px;border-radius:20px;background:${!r.bedTime?'var(--surface2)':r.bedOk?'var(--teal-light)':'var(--amber-light)'};color:${!r.bedTime?'var(--text3)':r.bedOk?'var(--teal)':'var(--amber)'}">
+          ${r.bedTime ? fmtTime(r.bedTime) : '—'}</span>` : ''}
+      </div>
+      <div style="font-size:16px">${!r.hasData ? '' : (r.durOk||!goals.dur)&&(r.bedOk||!goals.bed) ? '✓' : '○'}</div>
+    </div>`);
+  }
+  const valid7 = Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return d.toISOString().slice(0,10);}).map(date=>checkGoalsForDay(date)).filter(r=>r.hasData);
+  const hits = valid7.filter(r=>(r.durOk||!goals.dur)&&(r.bedOk||!goals.bed)).length;
+  el.innerHTML = valid7.length ? `<div style="display:flex;gap:8px;margin-bottom:10px">
+    <div class="met" style="flex:1"><div class="met-label">Goals hit</div><div class="met-val">${hits}/${valid7.length}</div><div class="met-sub">last 7 days</div></div>
+    <div class="met" style="flex:1"><div class="met-label">Hit rate</div><div class="met-val">${Math.round(hits/valid7.length*100)}%</div><div class="met-sub">last 7 days</div></div>
+  </div>${rows.join('')}` : rows.join('');
+}
+
+// ── SETTINGS & BACKUP ──
+let sheetsUrl = localStorage.getItem('sheetsUrl') || '';
+
+function updateSyncUI() {
+  const connected = !!sheetsUrl;
+  document.getElementById('sync-dot').style.background = connected ? '#1D9E75' : 'var(--border2)';
+  const lastSync = localStorage.getItem('lastSyncTime');
+  const lastSyncMsg = lastSync ? `Last synced ${new Date(+lastSync).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'})}` : 'Connected — auto-syncing';
+  document.getElementById('sync-status-line').textContent = connected ? lastSyncMsg : 'Not connected';
+  document.getElementById('sync-setup-area').style.display = connected ? 'none' : 'block';
+  document.getElementById('sync-connected-area').style.display = connected ? 'block' : 'none';
+  if (connected) document.getElementById('sheets-url').value = sheetsUrl;
+}
+
+function connectSheets() {
+  const url = document.getElementById('sheets-url').value.trim();
+  if (!url.startsWith('https://script.google.com')) { toast('Paste a valid Apps Script URL'); return; }
+  sheetsUrl = url;
+  localStorage.setItem('sheetsUrl', sheetsUrl);
+  updateSyncUI();
+  toast('Connected! Syncing all data…');
+  syncAllToSheets();
+}
+
+function disconnectSheets() {
+  sheetsUrl = '';
+  localStorage.removeItem('sheetsUrl');
+  updateSyncUI();
+  toast('Disconnected');
+}
+
+// POST: fire-and-forget with no-cors (writes only, no response needed)
+async function syncEntryToSheets(entry) {
+  if (!sheetsUrl) return;
+  try {
+    fetch(sheetsUrl, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify({ action: 'addEntry', entry })
+    });
+    localStorage.setItem('lastSyncTime', Date.now());
+  } catch(e) { console.warn('Sheets sync failed', e); }
+}
+
+async function syncAllToSheets() {
+  if (!sheetsUrl) return;
+  const btn = document.getElementById('sync-all-btn');
+  if (btn) { btn.textContent = 'Syncing…'; btn.disabled = true; }
+  // First pull from Sheets to merge any data we might be missing
+  await new Promise(resolve => {
+    const callbackName = 'sleepSyncPull_' + Date.now();
+    const script = document.createElement('script');
+    let done = false;
+    const cleanup = () => { if (script.parentNode) script.parentNode.removeChild(script); delete window[callbackName]; };
+    setTimeout(() => { if (!done) { done = true; cleanup(); resolve(); } }, 8000);
+    window[callbackName] = function(data) {
+      if (done) return; done = true; cleanup();
+      mergeFromSheets(data);
+      resolve();
+    };
+    script.onerror = () => { if (!done) { done = true; cleanup(); resolve(); } };
+    script.src = `${sheetsUrl}?action=getAll&callback=${callbackName}`;
+    document.head.appendChild(script);
+  });
+  // Then push all local data up to Sheets
+  fetch(sheetsUrl, {
+    method: 'POST',
+    mode: 'no-cors',
+    headers: { 'Content-Type': 'text/plain' },
+    body: JSON.stringify({ action: 'syncAll', logs })
+  });
+  await new Promise(r => setTimeout(r, 1500));
+  renderToday();
+  renderSettingsScreen();
+  toast(`Synced ${logs.length} entries`);
+  if (btn) { btn.textContent = 'Sync all data now'; btn.disabled = false; }
+}
+
+// Restore uses JSONP — only way to reliably read from Apps Script without CORS issues
+function confirmRestore() {
+  document.getElementById('restore-confirm').style.display = 'block';
+  document.getElementById('restore-btn').style.display = 'none';
+}
+function cancelRestore() {
+  document.getElementById('restore-confirm').style.display = 'none';
+  document.getElementById('restore-btn').style.display = 'block';
+}
+
+function restoreFromSheets() {
+  const btn = document.getElementById('restore-go-btn');
+  btn.textContent = 'Fetching…'; btn.disabled = true;
+
+  const callbackName = 'sleepRestoreCallback_' + Date.now();
+  const script = document.createElement('script');
+  let done = false;
+
+  const cleanup = () => {
+    if (script.parentNode) script.parentNode.removeChild(script);
+    delete window[callbackName];
+  };
+
+  // Timeout after 12 seconds
+  const timer = setTimeout(() => {
+    if (done) return;
+    done = true;
+    cleanup();
+    toast('Restore timed out — check your URL and re-deploy');
+    btn.textContent = 'Restore'; btn.disabled = false;
+  }, 12000);
+
+  window[callbackName] = function(data) {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    cleanup();
+    if (!Array.isArray(data) || !data.length) {
+      toast('No data found — run Sync All first');
+      btn.textContent = 'Restore'; btn.disabled = false;
+      return;
+    }
+    logs = data;
+    save();
+    cancelRestore();
+    renderToday();
+    renderSettingsScreen();
+    toast(`Restored ${logs.length} entries`);
+    btn.textContent = 'Restore'; btn.disabled = false;
+  };
+
+  script.src = `${sheetsUrl}?action=getAll&callback=${callbackName}`;
+  script.onerror = () => {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    cleanup();
+    toast('Restore failed — check URL and re-deploy script');
+    btn.textContent = 'Restore'; btn.disabled = false;
+  };
+  document.head.appendChild(script);
+}
+
+function exportCSV() {
+  if (!logs.length) { toast('No data to export'); return; }
+  const header = 'Date,Type,Time,Nap minutes,Note';
+  const rows = [...logs]
+    .sort((a,b) => a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''))
+    .map(l => `${l.date},${l.type},${l.time||''},${l.napMins||''},${(l.note||'').replace(/,/g,'；')}`);
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `sleep-log-${todayStr()}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast(`Downloaded ${logs.length} entries`);
+}
+
+function renderSettingsScreen() {
+  updateSyncUI();
+  const count = logs.length;
+  document.getElementById('csv-count-line').textContent = count ? `${count} entries ready to export` : 'No entries yet';
+  document.getElementById('st-entries').textContent = count;
+  if (count) {
+    const dates = logs.map(l=>l.date).sort();
+    document.getElementById('st-range').textContent = `${fmtDate(dates[0])} – ${fmtDate(dates[dates.length-1])}`;
+  } else {
+    document.getElementById('st-range').textContent = '—';
+  }
+  const raw = localStorage.getItem('slp3') || '';
+  const bytes = new Blob([raw]).size;
+  document.getElementById('st-size').textContent = bytes < 1024 ? `${bytes} B` : `${(bytes/1024).toFixed(1)} KB`;
+}
+
+const GUIDE_STEPS = [
+  { n:1, t:'Create a new Google Sheet', d:'Go to sheets.google.com and create a blank spreadsheet. Name it "Sleep Tracker".' },
+  { n:2, t:'Open Apps Script', d:'In the sheet, click Extensions → Apps Script. Delete any existing code in the editor.' },
+  { n:3, t:'Paste the script', d:'Copy the script below and paste it into the editor, then click Save (the disk icon).' },
+  { n:4, t:'Deploy as Web App', d:'Click Deploy → New deployment → Web app. Set Execute as: Me. Set Who has access: Anyone. Click Deploy, authorise if asked, then copy the URL.' },
+  { n:5, t:'Paste URL here', d:'Come back to Settings, paste the URL into the field above, and tap Connect. That\'s it — every entry now syncs automatically.' },
+];
+
+const APPS_SCRIPT = `// Sleep Tracker — Apps Script
+// Paste this in Extensions → Apps Script, save, then deploy as Web App
+// Execute as: Me | Who has access: Anyone
+
+function doPost(e) {
+  try {
+    const data = JSON.parse(e.postData.contents);
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    let sheet = ss.getSheetByName('Log') || ss.insertSheet('Log');
+    if (sheet.getLastRow() === 0) {
+      sheet.appendRow(['id','date','type','time','napMins','note']);
+      sheet.setFrozenRows(1);
+    }
+    if (data.action === 'addEntry') {
+      const l = data.entry;
+      // Avoid duplicate ids
+      const ids = sheet.getLastRow() > 1
+        ? sheet.getRange(2,1,sheet.getLastRow()-1,1).getValues().flat().map(String)
+        : [];
+      if (!ids.includes(String(l.id))) {
+        sheet.appendRow([l.id, l.date, l.type, l.time||'', l.napMins||0, l.note||'']);
+      }
+    } else if (data.action === 'syncAll') {
+      sheet.clearContents();
+      sheet.appendRow(['id','date','type','time','napMins','note']);
+      sheet.setFrozenRows(1);
+      const sorted = data.logs.slice().sort((a,b) =>
+        a.date.localeCompare(b.date) || (a.time||'').localeCompare(b.time||''));
+      sorted.forEach(l =>
+        sheet.appendRow([l.id, l.date, l.type, l.time||'', l.napMins||0, l.note||'']));
+    }
+    return ContentService.createTextOutput('ok');
+  } catch(err) {
+    return ContentService.createTextOutput('error: ' + err.message);
+  }
+}
+
+function doGet(e) {
+  try {
+    const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Log');
+    var result = [];
+    if (sheet && sheet.getLastRow() >= 2) {
+      const rows = sheet.getRange(2,1,sheet.getLastRow()-1,6).getValues();
+      result = rows
+        .filter(r => r[0] !== '')
+        .map(r => ({
+          id: Number(r[0]),
+          date: String(r[1]),
+          type: String(r[2]),
+          time: String(r[3]||''),
+          napMins: Number(r[4]||0),
+          note: String(r[5]||'')
+        }));
+    }
+    const json = JSON.stringify(result);
+    // JSONP support — required to bypass CORS from static HTML apps
+    const cb = e.parameter.callback;
+    if (cb) {
+      return ContentService.createTextOutput(cb + '(' + json + ')')
+        .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    }
+    return ContentService.createTextOutput(json)
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch(err) {
+    const cb = e.parameter.callback;
+    if (cb) return ContentService.createTextOutput(cb + '([])')
+      .setMimeType(ContentService.MimeType.JAVASCRIPT);
+    return ContentService.createTextOutput('[]')
+      .setMimeType(ContentService.MimeType.JSON);
+  }
+}`;
+
+function showSetupGuide() {
+  const guide = document.getElementById('setup-guide');
+  const showing = guide.style.display !== 'none';
+  guide.style.display = showing ? 'none' : 'block';
+  if (!showing) {
+    document.getElementById('guide-steps').innerHTML = GUIDE_STEPS.map(s => `
+      <div style="display:flex;gap:10px;margin-bottom:14px;align-items:flex-start">
+        <div style="width:22px;height:22px;border-radius:50%;background:var(--surface2);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:500;color:var(--text2);flex-shrink:0;margin-top:1px">${s.n}</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:500;color:var(--text);margin-bottom:2px">${s.t}</div>
+          <div style="font-size:12px;color:var(--text2);line-height:1.5">${s.d}</div>
+          ${s.n===3 ? `<div style="margin-top:8px;background:var(--surface2);border-radius:8px;padding:10px">
+            <pre style="font-size:10px;color:var(--text2);font-family:'DM Mono',monospace;white-space:pre-wrap;line-height:1.5;margin:0;overflow-x:auto">${APPS_SCRIPT.replace(/</g,'&lt;').replace(/>/g,'&gt;')}</pre>
+            <button onclick="copyScript()" style="margin-top:8px;width:100%;padding:8px;border:0.5px solid var(--border2);border-radius:7px;background:var(--surface);font-size:12px;font-weight:500;color:var(--text);font-family:'DM Sans',sans-serif;cursor:pointer" id="copy-btn">Copy script</button>
+          </div>` : ''}
+        </div>
+      </div>`).join('');
+  }
+}
+
+function copyScript() {
+  navigator.clipboard.writeText(APPS_SCRIPT).then(() => {
+    const b = document.getElementById('copy-btn');
+    if (b) { b.textContent = 'Copied!'; setTimeout(() => { if(b) b.textContent='Copy script'; }, 2000); }
+  }).catch(() => toast('Long-press the script text to copy manually'));
+}
+
+function goTo(screen, idx) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach((b,i) => b.classList.toggle('active', i===idx));
+  document.getElementById('scr-'+screen).classList.add('active');
+  if (screen === 'trends') renderTrends();
+  if (screen === 'history') renderHistory();
+  if (screen === 'goals') renderGoalScreen();
+  if (screen === 'settings') renderSettingsScreen();
+}
+
+// Init — load from cache instantly, then quietly sync from Sheets in background
+document.getElementById('m-date').value = todayStr();
+setInterval(updateClock, 15000);
+updateClock();
+renderToday();
+// Background sync: wait 1s after load so UI is ready first
+setTimeout(backgroundSyncFromSheets, 1000);
+</script>
+</body>
+</html>
